@@ -1,5 +1,6 @@
 from django.db import models
 from users.models import User
+from django.conf import settings
 
 # Create your models here.
 class Game(models.Model):
@@ -12,6 +13,12 @@ class Game(models.Model):
 
     def __str__(self):
         return self.title
+    
+    def return_image_url(self):
+        if settings.DEBUG:
+            return f"http://localhost:8070{self.image.url}"
+        else:
+            return f"https://lawrencestudios.com{self.image.url}"
     
 class OwnedGame(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_games')
