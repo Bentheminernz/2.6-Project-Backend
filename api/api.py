@@ -25,7 +25,34 @@ class AllGameInfo(APIView):
 
     def get(self, request):
         games = shopping_models.Game.objects.all()
-        serializer = GameSerializer(games, many=True)
+        serializer = BasicGameSerializer(games, many=True)
+        
+        return Response({
+            'success': True,
+            'data': serializer.data
+        })
+    
+class SpecificGameInfo(APIView):
+    permission_classes = []
+
+    def post(self, request):
+        game_id = request.data.get('game_id')
+        
+        if not game_id:
+            return Response({
+                'success': False,
+                'message': 'Game ID is required.'
+            }, status=400)
+
+        try:
+            game = shopping_models.Game.objects.get(id=game_id)
+        except shopping_models.Game.DoesNotExist:
+            return Response({
+                'success': False,
+                'message': 'Game not found.'
+            }, status=404)
+
+        serializer = GameSerializer(game)
         
         return Response({
             'success': True,

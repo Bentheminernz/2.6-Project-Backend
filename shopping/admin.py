@@ -1,11 +1,21 @@
 from django.contrib import admin
-from .models import Game, OwnedGame, CartItem
+from .models import Game, OwnedGame, CartItem, Platform, Genre
 
 # Register your models here.
+
+class PlatformAdmin(admin.ModelAdmin):
+    list_display = ('name',)
+    search_fields = ('name',)
+
+class GenreAdmin(admin.ModelAdmin):
+    list_display = ('name',)
+    search_fields = ('name',)
+
 class GameAdmin(admin.ModelAdmin):
     list_display = ('title', 'price', 'release_date')
     search_fields = ('title', 'description')
     list_filter = ('release_date',)
+    filter_horizontal = ('platforms', 'genres')
 
 class OwnedGameAdmin(admin.ModelAdmin):
     list_display = ('user', 'game', 'purchase_date')
@@ -17,6 +27,8 @@ class CartItemAdmin(admin.ModelAdmin):
     search_fields = ('user__username', 'game__title')
     list_filter = ('added_date',)
 
+admin.site.register(Platform, PlatformAdmin)
+admin.site.register(Genre, GenreAdmin)
 admin.site.register(Game, GameAdmin)
 admin.site.register(OwnedGame, OwnedGameAdmin)
 admin.site.register(CartItem, CartItemAdmin)
