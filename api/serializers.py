@@ -12,7 +12,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_cart_items(self, obj):
         cart_items = obj.cart_items.all()
-        return CartItemSerializer(cart_items, many=True).data
+        return BasicUserCartItemSerializer(cart_items, many=True).data
 
 class BasicGameSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
@@ -25,6 +25,17 @@ class BasicGameSerializer(serializers.ModelSerializer):
     def get_image(self, obj):
         return obj.return_image_url()
     
+class BasicUserCartItemSerializer(serializers.ModelSerializer):
+    game_id = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = CartItem
+        fields = ('id', 'game_id')
+        read_only_fields = ('id',)
+    
+    def get_game_id(self, obj):
+        return obj.get_game_id()
+
 class PlatformSerializer(serializers.ModelSerializer):
     class Meta:
         model = Platform
@@ -54,7 +65,7 @@ class GameSerializer(serializers.ModelSerializer):
     def get_image(self, obj):
         return obj.return_image_url()
     
-class CartItemSerializer(serializers.ModelSerializer):
+class CartDetailItemSerializer(serializers.ModelSerializer):
     game = BasicGameSerializer()
 
     class Meta:

@@ -8,4 +8,5 @@ urlpatterns = [
     path('games/all/', AllGameInfo.as_view(), name='all_games'), 
     path('games/specific/', SpecificGameInfo.as_view(), name='specific_game'),
     path('cart/edit/', EditGameCart.as_view(), name='add_game_to_cart'),
+    path('cart/view/', ViewCart.as_view(), name='view_cart'),
 ]

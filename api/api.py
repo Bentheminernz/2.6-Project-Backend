@@ -7,7 +7,6 @@ from .serializers import *
 
 from users import models as user_models
 from shopping import models as shopping_models
-
 class UserView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -15,9 +14,15 @@ class UserView(APIView):
         user = request.user
         serializer = UserSerializer(user)
         
+        cart_items = shopping_models.CartItem.objects.filter(user=user)
+        cart_subtotal = sum(item.game.price * item.quantity for item in cart_items)
+        
         return Response({
             'success': True,
-            'data': serializer.data
+            'data': {
+                **serializer.data,
+                'cart_subtotal': cart_subtotal
+            }
         })
 
 class AllGameInfo(APIView):
@@ -89,7 +94,7 @@ class EditGameCart(APIView):
         shopping_models.CartItem.objects.create(user=user, game=game)
 
         cart_items = shopping_models.CartItem.objects.filter(user=user)
-        cart_serializer = CartItemSerializer(cart_items, many=True)
+        cart_serializer = BasicUserCartItemSerializer(cart_items, many=True)
         
         return Response({
             'success': True,
@@ -117,10 +122,28 @@ class EditGameCart(APIView):
             }, status=404)
 
         cart_items = shopping_models.CartItem.objects.filter(user=user)
-        cart_serializer = CartItemSerializer(cart_items, many=True)
+        cart_serializer = BasicUserCartItemSerializer(cart_items, many=True)
         
         return Response({
             'success': True,
             'data': cart_serializer.data,
             'message': 'Game removed from cart successfully.'
+        })
+    
+class ViewCart(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        cart_items = shopping_models.CartItem.objects.filter(user=user)
+        cart_subtotal = sum(item.game.price * item.quantity for item in cart_items)
+
+        serializer = CartDetailItemSerializer(cart_items, many=True)
+        
+        return Response({
+            'success': True,
+            'data': {
+                'cart_items': serializer.data,
+                'cart_subtotal': cart_subtotal
+            }
         })

@@ -109,5 +109,8 @@ class CartItem(models.Model):
     class Meta:
         unique_together = ('user', 'game')
 
+    def get_game_id(self):
+        return self.game.id if self.game else None
+
     def __str__(self):
         return f"{self.user.username} has {self.quantity} of {self.game.title} in cart"
