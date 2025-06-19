@@ -197,3 +197,4 @@ cython_debug/
 # Added by Ben
 /media
 ./media
+*.paw

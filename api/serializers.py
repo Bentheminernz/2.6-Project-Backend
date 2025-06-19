@@ -1,5 +1,5 @@
 from users.models import User
-from shopping.models import Game, CartItem, Platform, Genre
+from shopping.models import Game, CartItem, Platform, Genre, OwnedGame
 from rest_framework import serializers
 
 class UserSerializer(serializers.ModelSerializer):
@@ -13,17 +13,6 @@ class UserSerializer(serializers.ModelSerializer):
     def get_cart_items(self, obj):
         cart_items = obj.cart_items.all()
         return BasicUserCartItemSerializer(cart_items, many=True).data
-
-class BasicGameSerializer(serializers.ModelSerializer):
-    image = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Game
-        fields = ('id', 'title', 'description', 'price', 'image')
-        read_only_fields = ('id',)
-
-    def get_image(self, obj):
-        return obj.return_image_url()
     
 class BasicUserCartItemSerializer(serializers.ModelSerializer):
     game_id = serializers.SerializerMethodField()
@@ -65,6 +54,19 @@ class GameSerializer(serializers.ModelSerializer):
     def get_image(self, obj):
         return obj.return_image_url()
     
+class BasicGameSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+    platforms = PlatformSerializer(many=True, read_only=True)
+    genres = GenreSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Game
+        fields = ('id', 'title', 'description', 'price', 'image', 'platforms', 'genres')
+        read_only_fields = ('id',)
+
+    def get_image(self, obj):
+        return obj.return_image_url()
+    
 class CartDetailItemSerializer(serializers.ModelSerializer):
     game = BasicGameSerializer()
 
@@ -72,3 +74,11 @@ class CartDetailItemSerializer(serializers.ModelSerializer):
         model = CartItem
         fields = ('id', 'game', 'quantity', 'added_date')
         read_only_fields = ('id', 'added_date')
+
+class OwnedGameSerializer(serializers.ModelSerializer):
+    game = BasicGameSerializer()
+
+    class Meta:
+        model = OwnedGame
+        fields = ('id', 'game', 'purchase_date')
+        read_only_fields = ('id', 'purchase_date')
