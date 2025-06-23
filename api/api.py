@@ -35,10 +35,33 @@ class AllGameInfo(APIView):
         games = shopping_models.Game.objects.all()
 
         if not filters:
-            serializer = BasicGameSerializer(games, many=True)
+            page = int(request.query_params.get('page', 1))
+            page_size = int(request.query_params.get('page_size', 50))
+          
+            offset = (page - 1) * page_size
+            
+            total_games = games.count()
+            
+            games_paginated = games[offset:offset + page_size]
+            
+            total_pages = (total_games + page_size - 1) // page_size
+            has_next = page < total_pages
+            has_previous = page > 1
+            
+            serializer = GameSerializer(games_paginated, many=True)
             return Response({
                 'success': True,
-                'data': serializer.data
+                'data': {
+                    "games": serializer.data,
+                    "pagination": {
+                        'current_page': page,
+                        'page_size': page_size,
+                        'total_games': total_games,
+                        'total_pages': total_pages,
+                        'has_next': has_next,
+                        'has_previous': has_previous,
+                    }
+                }
             })
         
         try:
@@ -65,9 +88,19 @@ class AllGameInfo(APIView):
             if 'search' in filters:
                 search_query = filters.get('search')
                 games = games.filter(title__icontains=search_query)
-            if 'pagination_limit' in filters:
-                pagination_limit = int(filters.get('pagination_limit'))
-                games = games[:pagination_limit]
+
+            page = int(filters.get('page', 1))
+            page_size = int(filters.get('page_size', 50))
+            
+            offset = (page - 1) * page_size
+            
+            total_games = games.count()
+            
+            games = games[offset:offset + page_size]
+            
+            total_pages = (total_games + page_size - 1) // page_size
+            has_next = page < total_pages
+            has_previous = page > 1
         except Exception as e:
             return Response({
                 'success': False,
@@ -80,19 +113,21 @@ class AllGameInfo(APIView):
                 'message': 'No games found with the provided filters.'
             }, status=404)
         
-        serializer = BasicGameSerializer(games, many=True)
+        serializer = GameSerializer(games, many=True)
         return Response({
             'success': True,
-            'data': serializer.data
+            'data': {
+                'games': serializer.data,
+                'pagination': {
+                    'current_page': page if 'page' in filters else 1,
+                    'page_size': page_size if 'page_size' in filters else len(serializer.data),
+                    'total_games': total_games if 'page' in filters else len(serializer.data),
+                    'total_pages': total_pages if 'page' in filters else 1,
+                    'has_next': has_next if 'page' in filters else False,
+                    'has_previous': has_previous if 'page' in filters else False,
+                }
+            }
         })
-
-        # games = shopping_models.Game.objects.all()
-        # serializer = BasicGameSerializer(games, many=True)
-        
-        # return Response({
-        #     'success': True,
-        #     'data': serializer.data
-        # })
     
 class SpecificGameInfo(APIView):
     permission_classes = []
