@@ -75,6 +75,13 @@ class AllGameInfo(APIView):
                 is_sale = filters.get('is_sale').lower() == 'true'
                 if is_sale:
                     games = games.filter(is_sale=is_sale)
+            if 'hide_owned' in filters:
+                hide_owned = filters.get('hide_owned').lower() == 'true'
+                if hide_owned:
+                    if request.user.is_authenticated:
+                        user = request.user
+                        owned_games = shopping_models.OwnedGame.objects.filter(user=user).values_list('game_id', flat=True)
+                        games = games.exclude(id__in=owned_games)
             if 'sort_by' in filters:
                 sort_by = filters.get('sort_by')
                 if sort_by == 'price_asc':
@@ -260,3 +267,110 @@ class OwnedGamesView(APIView):
             'success': True,
             'data': serializer.data
         })
+    
+class SearchSuggestions(APIView):
+    permission_classes = []
+
+    def get(self, request):
+        query = request.query_params.get('query', '')
+        if not query:
+            return Response({
+                'success': False,
+                'message': 'Query parameter is required.'
+            }, status=400)
+
+        games = shopping_models.Game.objects.filter(title__icontains=query)[:10]
+        suggestions = []
+        for game in games:
+            suggestions.append({
+                'id': game.id,
+                'title': game.title
+            })
+
+        return Response({
+            'success': True,
+            'data': suggestions
+        })
+
+class CreateOrder(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        game_ids = request.data.get('game_ids', [])
+        
+        if not game_ids:
+            return Response({
+                'success': False,
+                'message': 'Game IDs are required.'
+            }, status=400)
+        
+        if not isinstance(game_ids, list):
+            return Response({
+                'success': False,
+                'message': 'Game IDs must be provided as a list.'
+            }, status=400)
+        
+        try:
+            games = shopping_models.Game.objects.filter(id__in=game_ids)
+            
+            if len(games) != len(game_ids):
+                return Response({
+                    'success': False,
+                    'message': 'One or more games not found.'
+                }, status=404)
+            
+            owned_games = shopping_models.OwnedGame.objects.filter(
+                user=user, 
+                game__in=games
+            ).values_list('game_id', flat=True)
+            
+            if owned_games:
+                owned_game_titles = games.filter(id__in=owned_games).values_list('title', flat=True)
+                return Response({
+                    'success': False,
+                    'message': f'You already own the following games: {", ".join(owned_game_titles)}'
+                }, status=400)
+            
+            total_amount = 0
+            for game in games:
+                if game.is_sale and game.sale_price:
+                    total_amount += game.sale_price
+                else:
+                    total_amount += game.price
+            
+            order = shopping_models.Order.objects.create(
+                user=user,
+                total_amount=total_amount,
+                is_completed=True
+            )
+            
+            order.games.set(games)
+            
+            owned_game_objects = [
+                shopping_models.OwnedGame(user=user, game=game)
+                for game in games
+            ]
+            shopping_models.OwnedGame.objects.bulk_create(owned_game_objects)
+            
+            shopping_models.CartItem.objects.filter(
+                user=user, 
+                game__in=games
+            ).delete()
+            
+            return Response({
+                'success': True,
+                'data': {
+                    'order_id': order.id,
+                    'total_amount': float(order.total_amount),
+                    'order_date': order.order_date,
+                    'games_purchased': [game.title for game in games]
+                },
+                'message': 'Order created successfully!'
+            })
+            
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': f'Error creating order: {str(e)}'
+            }, status=500)

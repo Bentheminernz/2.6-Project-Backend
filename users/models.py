@@ -19,3 +19,43 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.username
+    
+class CreditCard(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='credit_cards')
+    name_on_card = models.CharField(max_length=100)
+    card_number = models.CharField(max_length=16, unique=True)
+    expiration_date = models.DateField()
+    cvv = models.CharField(max_length=3)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.card_number[-4:]}"
+    
+    class Meta:
+        verbose_name_plural = "Credit Cards"
+        ordering = ['user', 'expiration_date']
+    
+class Address(models.Model):
+    COUNTRY_CHOICES = [
+        ('US', 'United States'),
+        ('CA', 'Canada'),
+        ('AU', 'Australia'),
+        ('GB', 'United Kingdom'),
+        ('DE', 'Germany'),
+        ('FR', 'France'),
+        ('JP', 'Japan'),
+        ('NZ', 'New Zealand'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='addresses')
+    street_address = models.CharField(max_length=255)
+    suburb = models.CharField(max_length=100, blank=True)
+    city = models.CharField(max_length=100)
+    postcode = models.CharField(max_length=10)
+    country = models.CharField(max_length=100, choices=COUNTRY_CHOICES, default='NZ')
+
+    def __str__(self):
+        return f"{self.user.username} - {self.street_address}, {self.city}, {self.country}"
+    
+    class Meta:
+        verbose_name_plural = "Addresses"
+        ordering = ['user', 'city', 'street_address']

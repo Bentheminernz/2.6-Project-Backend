@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Game, OwnedGame, CartItem, Platform, Genre
+from .models import Game, OwnedGame, CartItem, Platform, Genre, Order
 
 # Register your models here.
 
@@ -27,8 +27,15 @@ class CartItemAdmin(admin.ModelAdmin):
     search_fields = ('user__username', 'game__title')
     list_filter = ('added_date',)
 
+class OrderAdmin(admin.ModelAdmin):
+    list_display = ('user', 'total_amount', 'order_date')
+    search_fields = ('user__username',)
+    list_filter = ('order_date',)
+    filter_horizontal = ('games',)
+
 admin.site.register(Platform, PlatformAdmin)
 admin.site.register(Genre, GenreAdmin)
 admin.site.register(Game, GameAdmin)
 admin.site.register(OwnedGame, OwnedGameAdmin)
 admin.site.register(CartItem, CartItemAdmin)
+admin.site.register(Order, OrderAdmin)

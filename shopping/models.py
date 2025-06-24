@@ -114,3 +114,14 @@ class CartItem(models.Model):
 
     def __str__(self):
         return f"{self.user.username} has {self.quantity} of {self.game.title} in cart"
+    
+class Order(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders')
+    games = models.ManyToManyField(Game, related_name='orders', blank=True)
+    order_date = models.DateField(auto_now_add=True)
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    is_completed = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Order {self.id} by {self.user.username} on {self.order_date} - Total: ${self.total_amount:.2f}"
+    
