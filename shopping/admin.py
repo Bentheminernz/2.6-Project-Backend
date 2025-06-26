@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Game, OwnedGame, CartItem, Platform, Genre, Order
+from .models import Game, OwnedGame, CartItem, Platform, Genre, Order, OrderItem
 
 # Register your models here.
 
@@ -22,6 +22,9 @@ class OwnedGameAdmin(admin.ModelAdmin):
     search_fields = ('user__username', 'game__title')
     list_filter = ('purchase_date',)
 
+    def has_change_permission(self, request, obj=None):
+        return False
+
 class CartItemAdmin(admin.ModelAdmin):
     list_display = ('user', 'game', 'quantity', 'added_date')
     search_fields = ('user__username', 'game__title')
@@ -33,9 +36,17 @@ class OrderAdmin(admin.ModelAdmin):
     list_filter = ('order_date',)
     filter_horizontal = ('games',)
 
+    def has_change_permission(self, request, obj=None):
+        return False
+    
+class OrderItemAdmin(admin.ModelAdmin):
+    list_display = ('order', 'game', 'purchase_price', 'quantity')
+    search_fields = ('order__user__username', 'game__title')
+
 admin.site.register(Platform, PlatformAdmin)
 admin.site.register(Genre, GenreAdmin)
 admin.site.register(Game, GameAdmin)
 admin.site.register(OwnedGame, OwnedGameAdmin)
 admin.site.register(CartItem, CartItemAdmin)
 admin.site.register(Order, OrderAdmin)
+admin.site.register(OrderItem, OrderItemAdmin)

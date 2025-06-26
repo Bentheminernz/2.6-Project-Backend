@@ -1,6 +1,8 @@
 from django.db import models
 from users.models import User
 from django.conf import settings
+import string
+import random
 
 # Create your models here.
 PLATFORM_CHOICES = [
@@ -115,7 +117,30 @@ class CartItem(models.Model):
     def __str__(self):
         return f"{self.user.username} has {self.quantity} of {self.game.title} in cart"
     
+def generate_order_id():
+    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+
+class OrderItem(models.Model):
+    """Represents an individual game purchase within an order"""
+    order = models.ForeignKey('Order', on_delete=models.CASCADE, related_name='order_items')
+    game = models.ForeignKey(Game, on_delete=models.CASCADE, related_name='order_items')
+    purchase_price = models.DecimalField(max_digits=10, decimal_places=2)
+    quantity = models.PositiveIntegerField(default=1)
+    
+    class Meta:
+        unique_together = ('order', 'game')
+    
+    def __str__(self):
+        return f"{self.game.title} in Order {self.order.id} - ${self.purchase_price}"
+
 class Order(models.Model):
+    id = models.CharField(
+        primary_key=True,
+        max_length=8,
+        unique=True,
+        editable=False,
+        default=generate_order_id
+    )
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders')
     games = models.ManyToManyField(Game, related_name='orders', blank=True)
     order_date = models.DateField(auto_now_add=True)
@@ -124,4 +149,3 @@ class Order(models.Model):
 
     def __str__(self):
         return f"Order {self.id} by {self.user.username} on {self.order_date} - Total: ${self.total_amount:.2f}"
-    

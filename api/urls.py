@@ -11,4 +11,6 @@ urlpatterns = [
     path('cart/edit/', EditGameCart.as_view(), name='add_game_to_cart'),
     path('cart/view/', ViewCart.as_view(), name='view_cart'),
     path('search/suggestion/', SearchSuggestions.as_view(), name='search_suggestions'),
+    path('order/create/', CreateOrder.as_view(), name='create_order'),
+    path('order/', OrderInfoView.as_view(), name='order_info'),
 ]

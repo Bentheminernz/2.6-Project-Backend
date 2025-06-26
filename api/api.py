@@ -296,76 +296,83 @@ class CreateOrder(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        user = request.user
-        game_ids = request.data.get('game_ids', [])
+        order_serializer = OrderCreateSerializer(data=request.data, context={'request': request})
         
-        if not game_ids:
+        if not order_serializer.is_valid():
             return Response({
                 'success': False,
-                'message': 'Game IDs are required.'
+                'message': order_serializer.errors
             }, status=400)
-        
-        if not isinstance(game_ids, list):
-            return Response({
-                'success': False,
-                'message': 'Game IDs must be provided as a list.'
-            }, status=400)
-        
+
         try:
+            validated_data = order_serializer.validated_data
+            form_data = validated_data['form_data']
+            game_ids = validated_data['game_ids']
+            
             games = shopping_models.Game.objects.filter(id__in=game_ids)
-            
-            if len(games) != len(game_ids):
-                return Response({
-                    'success': False,
-                    'message': 'One or more games not found.'
-                }, status=404)
-            
-            owned_games = shopping_models.OwnedGame.objects.filter(
-                user=user, 
-                game__in=games
-            ).values_list('game_id', flat=True)
-            
-            if owned_games:
-                owned_game_titles = games.filter(id__in=owned_games).values_list('title', flat=True)
-                return Response({
-                    'success': False,
-                    'message': f'You already own the following games: {", ".join(owned_game_titles)}'
-                }, status=400)
-            
-            total_amount = 0
-            for game in games:
-                if game.is_sale and game.sale_price:
-                    total_amount += game.sale_price
-                else:
-                    total_amount += game.price
+            total_amount = order_serializer.calculate_total_amount(games)
             
             order = shopping_models.Order.objects.create(
-                user=user,
+                user=request.user,
                 total_amount=total_amount,
                 is_completed=True
             )
             
-            order.games.set(games)
+            # Create OrderItem instances with purchase prices
+            order_items = []
+            owned_game_objects = []
             
-            owned_game_objects = [
-                shopping_models.OwnedGame(user=user, game=game)
-                for game in games
-            ]
+            for game in games:
+                # Determine the purchase price (sale price if on sale, otherwise regular price)
+                purchase_price = game.sale_price if game.is_sale and game.sale_price else game.price
+                
+                # Create OrderItem
+                order_items.append(
+                    shopping_models.OrderItem(
+                        order=order,
+                        game=game,
+                        purchase_price=purchase_price,
+                        quantity=1
+                    )
+                )
+                
+                # Create OwnedGame
+                owned_game_objects.append(
+                    shopping_models.OwnedGame(user=request.user, game=game)
+                )
+            
+            shopping_models.OrderItem.objects.bulk_create(order_items)
             shopping_models.OwnedGame.objects.bulk_create(owned_game_objects)
             
             shopping_models.CartItem.objects.filter(
-                user=user, 
+                user=request.user, 
                 game__in=games
             ).delete()
+
+            if form_data.get('saveCard', False):
+                card_data = form_data.get('cardDetails', {})
+                if card_data:
+                    card_serializer = CreditCardCreateSerializer(
+                        data=card_data, 
+                        context={'request': request}
+                    )
+                    if card_serializer.is_valid():
+                        card_serializer.save()
+
+            if form_data.get('saveAddress', False):
+                address_data = form_data.get('addressDetails') or form_data.get('address', {})
+                if address_data:
+                    address_serializer = AddressCreateSerializer(
+                        data=address_data, 
+                        context={'request': request}
+                    )
+                    if address_serializer.is_valid():
+                        address_serializer.save()
             
+            order_response_serializer = OrderSerializer(order)
             return Response({
                 'success': True,
-                'data': {
-                    'order_id': order.id,
-                    'total_amount': float(order.total_amount),
-                    'order_date': order.order_date,
-                    'games_purchased': [game.title for game in games]
-                },
+                'data': order_response_serializer.data,
                 'message': 'Order created successfully!'
             })
             
@@ -374,3 +381,47 @@ class CreateOrder(APIView):
                 'success': False,
                 'message': f'Error creating order: {str(e)}'
             }, status=500)
+        
+class OrderInfoView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        orders = shopping_models.Order.objects.filter(user=user).order_by('-order_date')
+        
+        if not orders.exists():
+            return Response({
+                'success': False,
+                'message': 'No orders found for this user.'
+            }, status=404)
+        
+        serializer = OrderSerializer(orders, many=True)
+        
+        return Response({
+            'success': True,
+            'data': serializer.data
+        })
+    
+    def post(self, request):
+        order_id = request.data.get('order_id')
+        
+        if not order_id:
+            return Response({
+                'success': False,
+                'message': 'Order ID is required.'
+            }, status=400)
+
+        try:
+            order = shopping_models.Order.objects.get(id=order_id, user=request.user)
+        except shopping_models.Order.DoesNotExist:
+            return Response({
+                'success': False,
+                'message': 'Order not found.'
+            }, status=404)
+
+        serializer = OrderSerializer(order)
+        
+        return Response({
+            'success': True,
+            'data': serializer.data
+        })
