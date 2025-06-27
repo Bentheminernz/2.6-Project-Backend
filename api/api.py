@@ -14,7 +14,7 @@ class UserView(APIView):
 
     def get(self, request):
         user = request.user
-        serializer = UserSerializer(user)
+        serializer = UserSerializer(user, context={'request': request})
         
         cart_items = shopping_models.CartItem.objects.filter(user=user)
         cart_subtotal = sum(item.game.price * item.quantity for item in cart_items)
@@ -309,6 +309,40 @@ class CreateOrder(APIView):
             form_data = validated_data['form_data']
             game_ids = validated_data['game_ids']
             
+            card_details = form_data.get('cardDetails', {})
+            cvv = card_details.get('cvv', '')
+            
+            # save card if requested, the CVV is processed but not stored
+            if form_data.get('saveCard', False):
+                try:
+                    card_data = {
+                        'nameOnCard': card_details.get('nameOnCard'),
+                        'cardNumber': card_details.get('cardNumber'),
+                        'expiryDate': card_details.get('expiryDate'),
+                        'cvv': cvv
+                    }
+                    card_serializer = CreditCardCreateSerializer(
+                        data=card_data, 
+                        context={'request': request}
+                    )
+                    if card_serializer.is_valid():
+                        card_serializer.save()
+                except Exception as e:
+                    print(f"Card save error: {e}")
+            
+            # save address if requested
+            if form_data.get('saveAddress', False):
+                try:
+                    address_data = form_data.get('address', {})
+                    address_serializer = AddressCreateSerializer(
+                        data=address_data, 
+                        context={'request': request}
+                    )
+                    if address_serializer.is_valid():
+                        address_serializer.save()
+                except Exception as e:
+                    print(f"Address save error: {e}")
+            
             games = shopping_models.Game.objects.filter(id__in=game_ids)
             total_amount = order_serializer.calculate_total_amount(games)
             
@@ -318,15 +352,12 @@ class CreateOrder(APIView):
                 is_completed=True
             )
             
-            # Create OrderItem instances with purchase prices
             order_items = []
             owned_game_objects = []
             
             for game in games:
-                # Determine the purchase price (sale price if on sale, otherwise regular price)
                 purchase_price = game.sale_price if game.is_sale and game.sale_price else game.price
                 
-                # Create OrderItem
                 order_items.append(
                     shopping_models.OrderItem(
                         order=order,
@@ -336,7 +367,6 @@ class CreateOrder(APIView):
                     )
                 )
                 
-                # Create OwnedGame
                 owned_game_objects.append(
                     shopping_models.OwnedGame(user=request.user, game=game)
                 )
@@ -348,26 +378,6 @@ class CreateOrder(APIView):
                 user=request.user, 
                 game__in=games
             ).delete()
-
-            if form_data.get('saveCard', False):
-                card_data = form_data.get('cardDetails', {})
-                if card_data:
-                    card_serializer = CreditCardCreateSerializer(
-                        data=card_data, 
-                        context={'request': request}
-                    )
-                    if card_serializer.is_valid():
-                        card_serializer.save()
-
-            if form_data.get('saveAddress', False):
-                address_data = form_data.get('addressDetails') or form_data.get('address', {})
-                if address_data:
-                    address_serializer = AddressCreateSerializer(
-                        data=address_data, 
-                        context={'request': request}
-                    )
-                    if address_serializer.is_valid():
-                        address_serializer.save()
             
             order_response_serializer = OrderSerializer(order)
             return Response({

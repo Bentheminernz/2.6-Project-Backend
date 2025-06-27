@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
 from pathlib import Path
+from cryptography.fernet import Fernet
 from dotenv import load_dotenv
 import os
 
@@ -191,3 +192,6 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.BrowsableAPIRenderer',
     ),
 }
+
+# Encryption Key
+ENCRYPTION_KEY = Fernet.generate_key() if not os.getenv('ENCRYPTION_KEY') else os.getenv('ENCRYPTION_KEY')

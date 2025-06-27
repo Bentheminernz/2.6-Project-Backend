@@ -8,8 +8,8 @@ class UserAdmin(admin.ModelAdmin):
     list_filter = ('is_staff', 'is_active')
 
 class CreditCardAdmin(admin.ModelAdmin):
-    list_display = ('user', 'name_on_card', 'card_number', 'expiration_date')
-    search_fields = ('user__username', 'name_on_card', 'card_number')
+    list_display = ('user', 'name_on_card', 'last_four_digits', 'expiration_date')
+    search_fields = ('user__username', 'name_on_card', 'last_four_digits')
     list_filter = ('expiration_date',)
 
     def has_change_permission(self, request, obj=None):
