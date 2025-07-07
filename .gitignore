@@ -198,3 +198,4 @@ cython_debug/
 /media
 ./media
 *.paw
+.DS_Store
