@@ -194,7 +194,7 @@ cython_debug/
 .cursorindexingignore
 
 
-# Added by Ben
+# Added by Me
 /media
 ./media
 *.paw

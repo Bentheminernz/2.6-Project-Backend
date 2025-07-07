@@ -84,7 +84,7 @@ class GameSerializer(serializers.ModelSerializer):
         model = Game
         fields = (
             'id', 'title', 'developer', 'publisher', 'description', 
-            'price', 'release_date', 'image', 'trailer_url', 'platforms',
+            'price', 'release_date', 'image', 'platforms',
             'genres', 'is_sale', 'sale_price', 'sale_start_date', 'sale_end_date'
         )
         read_only_fields = ('id',)
@@ -275,3 +275,11 @@ class OrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ('id', 'total_amount', 'order_date', 'order_items')
+
+class CreateUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('username', 'email', 'password', 'first_name', 'last_name')
+        extra_kwargs = {
+            'password': {'write_only': True, 'min_length': 8},
+        }

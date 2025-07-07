@@ -1,6 +1,6 @@
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.authtoken.models import Token
 
 from .serializers import *
@@ -28,7 +28,7 @@ class UserView(APIView):
         })
 
 class AllGameInfo(APIView):
-    permission_classes = []
+    permission_classes = [AllowAny]
 
     def get(self, request):
         filters = request.query_params
@@ -77,11 +77,10 @@ class AllGameInfo(APIView):
                     games = games.filter(is_sale=is_sale)
             if 'hide_owned' in filters:
                 hide_owned = filters.get('hide_owned').lower() == 'true'
-                if hide_owned:
-                    if request.user.is_authenticated:
-                        user = request.user
-                        owned_games = shopping_models.OwnedGame.objects.filter(user=user).values_list('game_id', flat=True)
-                        games = games.exclude(id__in=owned_games)
+                if hide_owned and request.user.is_authenticated:
+                    user = request.user
+                    owned_games = shopping_models.OwnedGame.objects.filter(user=user).values_list('game_id', flat=True)
+                    games = games.exclude(id__in=owned_games)
             if 'sort_by' in filters:
                 sort_by = filters.get('sort_by')
                 if sort_by == 'price_asc':
@@ -137,7 +136,7 @@ class AllGameInfo(APIView):
         })
     
 class SpecificGameInfo(APIView):
-    permission_classes = []
+    permission_classes = [AllowAny]
 
     def post(self, request):
         game_id = request.data.get('game_id')
@@ -269,7 +268,7 @@ class OwnedGamesView(APIView):
         })
     
 class SearchSuggestions(APIView):
-    permission_classes = []
+    permission_classes = [AllowAny]
 
     def get(self, request):
         query = request.query_params.get('query', '')
@@ -435,3 +434,56 @@ class OrderInfoView(APIView):
             'success': True,
             'data': serializer.data
         })
+
+class UserSignUp(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        try:
+            serializer = CreateUserSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response({
+                    'success': False,
+                    'message': serializer.errors
+                }, status=400)
+            
+            first_name = serializer.validated_data.get('first_name', '')
+            last_name = serializer.validated_data.get('last_name', '')
+            username = serializer.validated_data.get('username')
+            email = serializer.validated_data.get('email')
+            password = serializer.validated_data.get('password')
+
+            if user_models.User.objects.filter(username=username).exists():
+                return Response({
+                    'success': False,
+                    'message': 'Username already exists.'
+                }, status=400)
+            if user_models.User.objects.filter(email=email).exists():
+                return Response({
+                    'success': False,
+                    'message': 'Email already exists.'
+                }, status=400)
+            
+            user = user_models.User.objects.create_user(
+                username=username,
+                email=email,
+                password=password,
+                first_name=first_name,
+                last_name=last_name
+            )
+            user.save()
+
+            token, created = Token.objects.get_or_create(user=user)
+            return Response({
+                'success': True,
+                'data': {
+                    'token': token.key,
+                },
+                'message': 'User created successfully!'
+            })
+        
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': f'Error creating user: {str(e)}'
+            }, status=500)
